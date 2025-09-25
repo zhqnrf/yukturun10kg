@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Tracker Makan & Olahraga — 7 Hari</title>
+  <meta name="theme-color" content="#111827" />
+  <!-- TailwindCSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50:'#eff6ff',100:'#dbeafe',200:'#bfdbfe',300:'#93c5fd',
+              400:'#60a5fa',500:'#3b82f6',600:'#2563eb',700:'#1d4ed8',
+              800:'#1e40af',900:'#1e3a8a'
+            },
+            mint: {
+              50:'#ecfdf5',100:'#d1fae5',200:'#a7f3d0',300:'#6ee7b7',
+              400:'#34d399',500:'#10b981',600:'#059669',700:'#047857',
+              800:'#065f46',900:'#064e3b'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    .glass { background: rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.25); backdrop-filter: blur(6px); }
+    .card { box-shadow: 0 10px 30px rgba(0,0,0,.08); }
+  </style>
+</head>
+<body class="min-h-screen bg-gradient-to-b from-brand-600 via-brand-500 to-mint-500 text-slate-900">
+  <div class="max-w-md mx-auto p-4">
+    <header class="mb-6 md:mb-10">
+      <h1 class="text-2xl md:text-4xl font-extrabold tracking-tight text-slate-900">Tracker Makan & Olahraga — 7 Hari</h1>
+      <p class="text-slate-600 mt-1">Fokus bahan: <b>telur, tahu, tempe</b> + sayur. Simpan otomatis di browser (localStorage). Cocok buat deploy statis di Vercel.</p>
+    </header>
+
+    <!-- Controls -->
+    <section class="mb-4">
+      <div class="card rounded-2xl bg-white p-4">
+        <label class="block text-sm font-medium text-slate-700">Mulai dari tanggal</label>
+        <input id="startDate" type="date" class="mt-1 w-full rounded-xl border-slate-300 focus:border-brand-600 focus:ring-brand-600" />
+        <div class="grid grid-cols-3 gap-2 mt-3">
+          <button id="buildBtn" class="py-2 rounded-xl bg-gradient-to-r from-brand-600 to-mint-500 text-white">Bangun</button>
+          <button id="resetBtn" class="py-2 rounded-xl bg-white border border-slate-300">Reset</button>
+          <button id="exportBtn" class="py-2 rounded-xl bg-white border border-slate-300">Export</button>
+        </div>
+      </div>
+      <div class="mt-3 card rounded-2xl bg-white p-4">
+        <h3 class="font-semibold mb-2">Progress</h3>
+        <div class="mb-2 text-sm text-slate-600 flex justify-between"><span>Total Workout</span><span id="workoutPct">0%</span></div>
+        <div class="w-full bg-slate-200 rounded-full h-2 mb-3"><div id="workoutBar" class="bg-brand-700 h-2 rounded-full" style="width:0%"></div></div>
+        <div class="mb-2 text-sm text-slate-600 flex justify-between"><span>Makan Sesuai</span><span id="mealPct">0%</span></div>
+        <div class="w-full bg-slate-200 rounded-full h-2"><div id="mealBar" class="bg-mint-600 h-2 rounded-full" style="width:0%"></div></div>
+      </div>
+    </section>
+
+    <!-- Schedule -->
+    <section id="days" class="grid gap-3"></section>
+
+    <footer class="mt-6 text-center text-xs text-white/90">Mobile-first • Simpel • Biru–Hijau Gradasi</footer>
+  </div>
+
+  <script>
+    // ======= Utilities =======
+    const KEY = 'tracker-v1';
+
+    function tomorrowLocalISO() {
+      const d = new Date();
+      d.setDate(d.getDate()+1);
+      const off = d.getTimezoneOffset();
+      const local = new Date(d.getTime() - off*60000);
+      return local.toISOString().slice(0,10);
+    }
+
+    function fmtDateISO(date){
+      const off = date.getTimezoneOffset();
+      return new Date(date.getTime()-off*60000).toISOString().slice(0,10);
+    }
+
+    function dayName(d){
+      return d.toLocaleDateString('id-ID', { weekday:'long' });
+    }
+
+    function save(data){ localStorage.setItem(KEY, JSON.stringify(data)); }
+    function load(){ try{ return JSON.parse(localStorage.getItem(KEY)) }catch(e){ return null } }
+
+    // ======= Default plan (menus & workout) =======
+    const MENUS = [
+      { L: 'Nasi 1 centong, Telur Dadar 2 butir (minyak tipis), Tumis Bayam Bawang. Bumbu: bawang putih/merah, garam, lada.',
+        D: 'Tempe Kukus + sambal tomat tipis, Sup Wortel-Kol. Bumbu: bawang putih, kaldu sedikit, garam.' },
+      { L: 'Nasi 1 centong, Tahu Panggang/Kukus + kecap & cabai, Tumis Buncis. Bumbu: bawang putih, kecap asin, cabai.',
+        D: 'Telur Rebus 2, Oseng Kangkung. Bumbu: bawang putih, (terasi opsional), garam.' },
+      { L: 'Nasi 1 centong, Telur Ceplok 2 (minyak tipis), Sayur bening sawi & jagung. Bumbu: bawang putih/merah, garam.',
+        D: 'Tempe Bacem ringan + timun & tomat. Bumbu: gula aren sedikit, kecap, ketumbar, garam.' },
+      { L: 'Nasi 1 centong, Tahu Orak-arik Telur (1 butir) + wortel. Bumbu: bawang putih/merah, lada, garam.',
+        D: 'Tempe Tumis Kecap + cabai, Sup labu/sayur campur. Bumbu: bawang putih, kecap, garam.' },
+      { L: 'Nasi 1 centong, Telur Balado ringan + Tumis sawi. Bumbu: bawang merah/putih, cabai, garam.',
+        D: 'Tahu Kuah Kunyit + bayam. Bumbu: bawang putih, kunyit bubuk, garam, lada.' },
+      { L: 'Nasi 1 centong, Tempe Panggang + sambal bawang, Oseng kol-wortel. Bumbu: bawang putih/merah, cabai, garam.',
+        D: 'Telur Rebus 2, Sup bening buncis-wortel. Bumbu: bawang putih, seledri, garam.' },
+      { L: 'Nasi 1 centong, Tahu–Telur Tumis Tomat (1 telur) + Tumis kangkung. Bumbu: bawang putih/merah, tomat, garam.',
+        D: 'Tempe oles kunyit-lada (panggang) + sayur sop sederhana. Bumbu: kunyit, lada, bawang putih, garam.' },
+    ];
+
+    const WORKOUT = [
+      { sesi:'Kardio Ringan', waktu:'05:00', detail:'Jogging 25–30m + Plank 3×30s + Sit up 3×15' },
+      { sesi:'Strength (Full Body)', waktu:'05:00', detail:'Push up 4×12, Squat 4×15, Row 4×12, Leg raise 3×15' },
+      { sesi:'HIIT', waktu:'05:00', detail:'30s cepat/1m santai ×10–12 + Mountain climber 3×30s' },
+      { sesi:'Istirahat Aktif', waktu:'05:00', detail:'Jalan cepat/Stretching 20–30m' },
+      { sesi:'Strength (Core+Lower)', waktu:'05:00', detail:'Plank 4×40s, Russian twist 3×20, Squat jump 3×12, Lunges 3×12/kaki' },
+      { sesi:'HIIT + Kardio', waktu:'16:00–17:00', detail:'Skipping 20m (30s cepat/1m santai) + Burpee 3×12 + Jumping jack 3×30s' },
+      { sesi:'Kardio & Core', waktu:'05:00', detail:'Jogging 20–25m + Plank 3×60s + Sit up 3×20 + Leg raise 3×15' },
+    ];
+
+    // ======= State =======
+    const state = {
+      start: null, // ISO yyyy-mm-dd
+      days: []     // [{date, lunch, dinner, workout:{...}, check:{lunch, dinner, workout:'', notes}}]
+    };
+
+    function buildWeek(startISO){
+      const start = new Date(startISO + 'T00:00:00');
+      state.start = startISO;
+      state.days = Array.from({length:7}, (_,i)=>{
+        const d = new Date(start); d.setDate(d.getDate()+i);
+        const idx = i % 7;
+        return {
+          date: fmtDateISO(d),
+          lunch: MENUS[idx].L,
+          dinner: MENUS[idx].D,
+          workout: WORKOUT[idx],
+          check: { lunch:false, dinner:false, workout:"", notes:"" }
+        };
+      });
+      save(state);
+      render();
+    }
+
+    function restoreOrInit(){
+      const saved = load();
+      const input = document.getElementById('startDate');
+      const def = tomorrowLocalISO();
+      input.value = saved?.start || def;
+      if(saved?.days?.length === 7){ Object.assign(state, saved); render(); }
+      else { buildWeek(input.value); }
+    }
+
+    function setWorkoutStatus(i, val){ state.days[i].check.workout = val; save(state); updateProgress(); }
+    function setMealCheck(i, which, val){ state.days[i].check[which] = !!val; save(state); updateProgress(); }
+    function setNotes(i, val){ state.days[i].check.notes = val; save(state); }
+
+    function resetProgress(){ state.days.forEach(d=>{ d.check={ lunch:false, dinner:false, workout:"", notes:"" } }); save(state); render(); }
+
+    function updateProgress(){
+      const totalW = state.days.length; // 7
+      const doneW = state.days.filter(d=>d.check.workout==='DONE').length;
+      const pctW = Math.round((doneW/totalW)*100);
+      document.getElementById('workoutPct').textContent = pctW+"%";
+      document.getElementById('workoutBar').style.width = pctW+"%";
+
+      const totalM = state.days.length*2; // lunch+dinner
+      const doneM = state.days.reduce((a,d)=> a + (d.check.lunch?1:0) + (d.check.dinner?1:0), 0);
+      const pctM = Math.round((doneM/totalM)*100);
+      document.getElementById('mealPct').textContent = pctM+"%";
+      document.getElementById('mealBar').style.width = pctM+"%";
+    }
+
+    function exportCSV(){
+      const rows = [['Tanggal','Hari','Waktu','Menu/Latihan','Status','Catatan']];
+      state.days.forEach((d,i)=>{
+        const hari = new Date(d.date).toLocaleDateString('id-ID',{weekday:'long'});
+        rows.push([d.date, hari, 'Siang', d.lunch, d.check.lunch?'OK':'', d.check.notes]);
+        rows.push([d.date, hari, 'Malam', d.dinner, d.check.dinner?'OK':'', d.check.notes]);
+        rows.push([d.date, hari, d.workout.waktu, `${d.workout.sesi} — ${d.workout.detail}`, d.check.workout, d.check.notes]);
+      });
+      const csv = rows.map(r=>r.map(v=>`"${String(v).replaceAll('"','""')}"`).join(',')).join('\n');
+      const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `tracker_${state.start}.csv`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+
+    function render(){
+      const wrap = document.getElementById('days');
+      wrap.innerHTML = '';
+      state.days.forEach((d,i)=>{
+        const hari = new Date(d.date).toLocaleDateString('id-ID',{weekday:'long'});
+        const html = `
+          <article class="card rounded-2xl bg-white p-4 md:p-5 flex flex-col gap-3">
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="text-lg font-semibold">${hari}</h3>
+                <p class="text-sm text-slate-500">${d.date}</p>
+              </div>
+              <span class="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-600">${d.workout.waktu}</span>
+            </div>
+
+            <div class="space-y-3">
+              <div class="border rounded-xl p-3">
+                <div class="flex items-center justify-between mb-1">
+                  <h4 class="font-medium">Makan Siang</h4>
+                  <label class="inline-flex items-center gap-2 text-sm">
+                    <input type="checkbox" ${d.check.lunch?'checked':''} data-i="${i}" data-which="lunch" class="mealCheck w-4 h-4">
+                    <span class="text-slate-600">Sesuai rencana</span>
+                  </label>
+                </div>
+                <p class="text-sm text-slate-700">${d.lunch}</p>
+                <p class="text-xs text-slate-500 mt-1">Porsi nasi: <b>1 centong</b>.</p>
+              </div>
+
+              <div class="border rounded-xl p-3">
+                <div class="flex items-center justify-between mb-1">
+                  <h4 class="font-medium">Makan Malam</h4>
+                  <label class="inline-flex items-center gap-2 text-sm">
+                    <input type="checkbox" ${d.check.dinner?'checked':''} data-i="${i}" data-which="dinner" class="mealCheck w-4 h-4">
+                    <span class="text-slate-600">Sesuai rencana</span>
+                  </label>
+                </div>
+                <p class="text-sm text-slate-700">${d.dinner}</p>
+                <p class="text-xs text-slate-500 mt-1">Porsi nasi: <b>½ centong</b> / tanpa nasi.</p>
+              </div>
+
+              <div class="border rounded-xl p-3">
+                <div class="flex items-center justify-between mb-1">
+                  <h4 class="font-medium">Olahraga — ${d.workout.sesi}</h4>
+                  <select data-i="${i}" class="workSel rounded-lg border-slate-300 text-sm">
+                    <option value="" ${d.check.workout===''?'selected':''}>—</option>
+                    <option value="DONE" ${d.check.workout==='DONE'?'selected':''}>DONE</option>
+                    <option value="SKIP" ${d.check.workout==='SKIP'?'selected':''}>SKIP</option>
+                  </select>
+                </div>
+                <p class="text-sm text-slate-700">${d.workout.detail}</p>
+              </div>
+
+              <div>
+                <label class="text-sm text-slate-600">Catatan</label>
+                <textarea data-i="${i}" rows="2" class="notes mt-1 w-full rounded-xl border-slate-300" placeholder="Rasa lapar, energi, kendala, dll">${d.check.notes || ''}</textarea>
+              </div>
+            </div>
+          </article>`;
+        const div = document.createElement('div');
+        div.innerHTML = html;
+        wrap.appendChild(div.firstElementChild);
+      });
+
+      // bind events
+      document.querySelectorAll('.workSel').forEach(el=>{
+        el.addEventListener('change', e=> setWorkoutStatus(+e.target.dataset.i, e.target.value));
+      });
+      document.querySelectorAll('.mealCheck').forEach(el=>{
+        el.addEventListener('change', e=> setMealCheck(+e.target.dataset.i, e.target.dataset.which, e.target.checked));
+      });
+      document.querySelectorAll('.notes').forEach(el=>{
+        el.addEventListener('input', e=> setNotes(+e.target.dataset.i, e.target.value));
+      });
+
+      updateProgress();
+    }
+
+    // ======= Init =======
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('startDate').value = tomorrowLocalISO();
+      restoreOrInit();
+      document.getElementById('buildBtn').addEventListener('click', ()=>{
+        const iso = document.getElementById('startDate').value || tomorrowLocalISO();
+        buildWeek(iso);
+      });
+      document.getElementById('resetBtn').addEventListener('click', ()=>{
+        if(confirm('Reset progress (DONE/SKIP/centang) untuk minggu ini?')) resetProgress();
+      });
+      document.getElementById('exportBtn').addEventListener('click', exportCSV);
+    });
+  </script>
+</body>
+</html>
