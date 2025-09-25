@@ -28,15 +28,34 @@
     }
   </script>
   <style>
-    .glass { background: rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.25); backdrop-filter: blur(6px); }
+    .card { box-shadow: 0 12px 30px rgba(0,0,0,.12); }
     .card { box-shadow: 0 10px 30px rgba(0,0,0,.08); }
+    /* Simplified clean gradient background */
+  
+    .card { box-shadow: 0 12px 30px rgba(0,0,0,.12); }
+    .card { box-shadow: 0 12px 30px rgba(0,0,0,.12); }
+    .bgfx{ position:fixed; inset:0; z-index:-1; overflow:hidden; }
+    .bgfx .grad{ position:absolute; inset:-20%; background: linear-gradient(120deg,#1d4ed8,#2563eb,#10b981); background-size:200% 200%; animation: pan 18s ease-in-out infinite; }
+    .bgfx .blob{ position:absolute; border-radius:9999px; filter: blur(40px); opacity:.25; }
+    .bgfx .blob.a{ width:18rem; height:18rem; left:-5rem; top:-5rem; background:#34d399; }
+    .bgfx .blob.b{ width:20rem; height:20rem; right:-6rem; bottom:-6rem; background:#60a5fa; }
+    .bgfx .noise{ position:absolute; inset:0; mix-blend: overlay; opacity:.18; background-image: radial-gradient(var(--noise) 1px, transparent 1px); background-size:6px 6px; }
+    @keyframes pan{ 0%{background-position:0% 0%} 50%{background-position:100% 100%} 100%{background-position:0% 0%} }
+    @media (prefers-reduced-motion: reduce){ .bgfx .grad{ animation:none } }
   </style>
 </head>
-<body class="min-h-screen bg-gradient-to-b from-brand-600 via-brand-500 to-mint-500 text-slate-900">
+<body class="min-h-screen bg-gradient-to-b from-sky-900 via-sky-800 to-emerald-700 text-slate-900">
+  
+    <div class="blob a"></div>
+    <div class="blob b"></div>
+    <div class="noise"></div>
+  </div>
   <div class="max-w-md mx-auto p-4">
-    <header class="mb-6 md:mb-10">
-      <h1 class="text-2xl md:text-4xl font-extrabold tracking-tight text-slate-900">Tracker Makan & Olahraga — 7 Hari</h1>
-      <p class="text-slate-600 mt-1">Fokus bahan: <b>telur, tahu, tempe</b> + sayur. Simpan otomatis di browser (localStorage). Cocok buat deploy statis di Vercel.</p>
+    <header class="mb-4">
+      <div class="card rounded-2xl bg-white p-4">
+        <h1 class="text-2xl font-extrabold tracking-tight text-slate-900">Tracker Makan & Latihan — 7 Hari</h1>
+        <p class="text-slate-600 mt-1">Fokus utama: <b>telur, tahu, tempe</b> + sayur. Data tersimpan otomatis di perangkatmu.</p>
+      </div>
     </header>
 
     <!-- Controls -->
@@ -62,7 +81,7 @@
     <!-- Schedule -->
     <section id="days" class="grid gap-3"></section>
 
-    <footer class="mt-6 text-center text-xs text-white/90">Mobile-first • Simpel • Biru–Hijau Gradasi</footer>
+    <footer class="mt-6 text-center text-xs text-slate-200">Mobile-first • Simpel • Biru–Hijau</footer>
   </div>
 
   <script>
